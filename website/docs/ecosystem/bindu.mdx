@@ -53,41 +53,40 @@ This example demonstrates how to use `bindufy` to upgrade a standard AG2 `Conver
 ```python
 import logging
 import os
-from autogen import ConversableAgent
+from autogen import ConversableAgent, LLMConfig
 from bindu.penguin import bindufy
 from dotenv import load_dotenv
 
 load_dotenv()
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
-# 1. Configure the LLM (Using OpenRouter in this example)
-llm_config = {
-    "config_list": [
-        {
-            "model": "anthropic/claude-3-haiku",
-            "api_key": os.getenv("OPENROUTER_API_KEY", ""),
-            "base_url": "https://openrouter.ai/api/v1",
-        }
-    ]
-}
+# 1. Configure the LLM Provider
+# Using OpenRouter to access Claude-3 in this example, but any AG2-supported LLM works.
+llm_config = LLMConfig({
+    "api_type": "openai",
+    "model": "anthropic/claude-3-haiku",
+    "api_key": os.getenv("OPENROUTER_API_KEY", ""),
+    "base_url": "https://openrouter.ai/api/v1",
+})
 
-# 2. Define the Bindu microservice configuration
+# 2. Define the Bindu Microservice Metadata
+# This configuration dictates how the agent is identified and routed on the Bindu network.
 config = {
     "author": "ag2.developer@example.com",
     "name": "ag2-networked-assistant",
     "description": "An AG2 ConversableAgent exposed via the Bindu A2A protocol.",
     "deployment": {
         "url": "http://localhost:3773",
-        "expose": False, # Set to True to expose via tunneling for external access
+        "expose": False, # Set to True to expose the agent to the public internet via tunneling
     },
     "skills": []
 }
 
-# 3. Create the Handler to bridge incoming Bindu A2A requests to AG2
+# 3. Create the A2A Bridge Handler
+# This function is triggered every time a Bindu node sends a message to this agent's DID.
 def handler(messages: list[dict[str, str]]):
-    # Extract the latest user message from the incoming A2A payload
+    # Parse the incoming JSON-RPC payload to extract the user's latest prompt
     if not messages:
         return [{"role": "assistant", "content": "No input provided."}]
     
@@ -95,40 +94,36 @@ def handler(messages: list[dict[str, str]]):
     if not user_input:
         return [{"role": "assistant", "content": "Empty message."}]
     
-    # Initialize fresh agents per request to maintain a stateless API environment
+    # Initialize a fresh agent per request to maintain a stateless API environment
     assistant = ConversableAgent(
         name="assistant",
         system_message="You are a helpful AG2 assistant. Keep answers concise.",
         llm_config=llm_config,
+        human_input_mode="NEVER" # Disable CLI prompts for automated API execution
     )
     
-    user_proxy = ConversableAgent(
-        name="user_proxy", 
-        human_input_mode="NEVER",
-    )
-    
-    # Trigger the AG2 conversation loop
-    result = user_proxy.initiate_chat(
-        assistant, 
+    # Trigger the AG2 workflow
+    response = assistant.run(
         message=user_input, 
-        max_turns=1
+        max_turns=1 # Restrict to a single request/response cycle for standard API behavior
     )
     
-    # Extract the final reply from the AG2 chat history and return it to Bindu
-    if result.chat_history:
-        reply = result.chat_history[-1].get("content", "")
+    # Process the event stream to completion
+    response.process() 
+    
+    # Extract the final reply from the AG2 chat history and return it to the Bindu network
+    if hasattr(response, "chat_history") and response.chat_history:
+        reply = response.chat_history[-1].get("content", "")
         return [{"role": "assistant", "content": reply}]
         
     return [{"role": "assistant", "content": "Task completed."}]
 
 if __name__ == "__main__":
-    # Launch the AG2 agent as a live Bindu microservice
+    # Bindufy the agent: generates a W3C DID and starts the A2A JSON-RPC server
     bindufy(config, handler)
 ```
 
 Access the complete architecture and advanced examples from the [Bindu GitHub repository](https://github.com/GetBindu/Bindu).
-
-This example showcases:
 
 This example showcases:
 
