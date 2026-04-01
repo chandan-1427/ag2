@@ -89,7 +89,7 @@ def handler(messages: list[dict[str, str]]):
     # Parse the incoming JSON-RPC payload to extract the user's latest prompt
     if not messages:
         return [{"role": "assistant", "content": "No input provided."}]
-    
+
     user_input = messages[-1].get("content", "")
     if not user_input:
         return [{"role": "assistant", "content": "Empty message."}]
@@ -115,7 +115,7 @@ def handler(messages: list[dict[str, str]]):
     if hasattr(response, "chat_history") and response.chat_history:
         reply = response.chat_history[-1].get("content", "")
         return [{"role": "assistant", "content": reply}]
-        
+
     return [{"role": "assistant", "content": "Task completed."}]
 
 if __name__ == "__main__":
