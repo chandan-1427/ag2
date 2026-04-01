@@ -93,7 +93,7 @@ def handler(messages: list[dict[str, str]]):
     user_input = messages[-1].get("content", "")
     if not user_input:
         return [{"role": "assistant", "content": "Empty message."}]
-    
+
     # Initialize a fresh agent per request to maintain a stateless API environment
     assistant = ConversableAgent(
         name="assistant",
@@ -101,16 +101,16 @@ def handler(messages: list[dict[str, str]]):
         llm_config=llm_config,
         human_input_mode="NEVER" # Disable CLI prompts for automated API execution
     )
-    
+
     # Trigger the AG2 workflow
     response = assistant.run(
-        message=user_input, 
+        message=user_input,
         max_turns=1 # Restrict to a single request/response cycle for standard API behavior
     )
-    
+
     # Process the event stream to completion
-    response.process() 
-    
+    response.process()
+
     # Extract the final reply from the AG2 chat history and return it to the Bindu network
     if hasattr(response, "chat_history") and response.chat_history:
         reply = response.chat_history[-1].get("content", "")
